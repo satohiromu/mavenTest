@@ -1,7 +1,8 @@
 <component>
 	<dependencySets>
 		<dependencySet>
-			<outputDirectory>/lib</outputDirectory>
+			<outputDirectory>/</outputDirectory>
+			<unpack>true</unpack>
 			<!--excludes>
 				<exclude>textEditor-1.0.jar</exclude>
 			</excludes-->
