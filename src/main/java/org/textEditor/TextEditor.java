@@ -42,14 +42,11 @@ import javax.swing.JOptionPane;
 import javax.swing.TransferHandler;
 import javax.swing.JComponent;
 import javax.swing.filechooser.FileNameExtensionFilter;
-import javax.swing.event.CaretEvent;
-import javax.swing.event.CaretListener;
 import org.mozilla.universalchardet.UniversalDetector;
 
-public class TextEditor extends JFrame implements ActionListener, CaretListener{
+public class TextEditor extends JFrame implements ActionListener{
 
 	private JTextArea textArea;
-	private int caretPosition = 0;
 	private String filePath = new File("").getAbsolutePath();
 	private String textTitle = "No title";
 	private String textData = "";
@@ -84,7 +81,7 @@ public class TextEditor extends JFrame implements ActionListener, CaretListener{
 
 		// carret setting
 		textArea.setCaretPosition(0);
-		textArea.addCaretListener(this);
+		//textArea.addCaretListener(this);
 
 		// set tabSize
 		textArea.setTabSize(4);
@@ -93,7 +90,6 @@ public class TextEditor extends JFrame implements ActionListener, CaretListener{
 		textArea.addKeyListener(new MyKeyEvent());
 
 		// D&D event
-	//	textArea.setTransferHandler(new MyDropEvent(this));
 		textArea.setDropTarget(new MyDropEvent(this));
 
 		// scroll
@@ -113,40 +109,40 @@ public class TextEditor extends JFrame implements ActionListener, CaretListener{
 		JMenuItem fileMenuItemNew = new JMenuItem("New");
 		fileMenuItemNew.setMnemonic(KeyEvent.VK_N);
 		fileMenuItemNew.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_N, InputEvent.CTRL_DOWN_MASK));
-		//fileMenuItemNew.setActionCommand("New");
-		fileMenuItemNew.setActionCommand("N");
+		fileMenuItemNew.setActionCommand("New");
+		//fileMenuItemNew.setActionCommand("N");
 		fileMenuItemNew.addActionListener(this);
 		
 		// open
 		JMenuItem fileMenuItemOpen = new JMenuItem("Open");
 		fileMenuItemOpen.setMnemonic(KeyEvent.VK_O);
 		fileMenuItemOpen.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_O, InputEvent.CTRL_DOWN_MASK));
-		//fileMenuItemOpen.setActionCommand("Open");
-		fileMenuItemOpen.setActionCommand("O");
+		fileMenuItemOpen.setActionCommand("Open");
+		//fileMenuItemOpen.setActionCommand("O");
 		fileMenuItemOpen.addActionListener(this);
 		
 		// save
 		JMenuItem fileMenuItemSave = new JMenuItem("Save");
 		fileMenuItemSave.setMnemonic(KeyEvent.VK_S);
 		fileMenuItemSave.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_S, InputEvent.CTRL_DOWN_MASK));
-		//fileMenuItemSave.setActionCommand("Save");
-		fileMenuItemSave.setActionCommand("S");
+		fileMenuItemSave.setActionCommand("Save");
+		//fileMenuItemSave.setActionCommand("S");
 		fileMenuItemSave.addActionListener(this);
 		
 		// save as
 		JMenuItem fileMenuItemSaveas = new JMenuItem("Save as");
 		fileMenuItemSaveas.setMnemonic(KeyEvent.VK_A);
 		fileMenuItemSaveas.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_A, InputEvent.CTRL_DOWN_MASK));
-		//fileMenuItemSaveas.setActionCommand("Save_as");
-		fileMenuItemSaveas.setActionCommand("A");
+		fileMenuItemSaveas.setActionCommand("Save_as");
+		//fileMenuItemSaveas.setActionCommand("A");
 		fileMenuItemSaveas.addActionListener(this);
 
 		// close
 		JMenuItem fileMenuItemClose = new JMenuItem("Close");
 		fileMenuItemClose.setMnemonic(KeyEvent.VK_C);
 		fileMenuItemClose.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_C, InputEvent.CTRL_DOWN_MASK));
-		//fileMenuItemClose.setActionCommand("Close");
-		fileMenuItemClose.setActionCommand("C");
+		fileMenuItemClose.setActionCommand("Close");
+		//fileMenuItemClose.setActionCommand("C");
 		fileMenuItemClose.addActionListener(this);
 
 
@@ -163,6 +159,27 @@ public class TextEditor extends JFrame implements ActionListener, CaretListener{
 
 	// menuItem event
 	public void actionPerformed(ActionEvent event){
+		String cmd = event.getActionCommand().toString();
+                switch(cmd){
+                        case "New" :
+                                newFile();
+                                break;
+                        case "Open" :
+                                openFile("");
+                                break;
+                        case "Save" :
+                                saveMode = "save";
+                                saveFile(saveMode);
+                                break;
+                        case "Save_as" :
+                                saveMode = "saveAs";
+                                saveFile(saveMode);
+                                break;
+                        case "Close" :
+                                closeFrame();
+                                break;
+                }
+/*
 		char[] cmd = event.getActionCommand().toCharArray();
 		switch(cmd[0]){
 			case 'N' :
@@ -183,6 +200,7 @@ public class TextEditor extends JFrame implements ActionListener, CaretListener{
 				closeFrame();
 				break;
 		}
+*/
 	}
 
 	// set fileName
@@ -222,9 +240,9 @@ public class TextEditor extends JFrame implements ActionListener, CaretListener{
 	
 		if(fileName.equals("")){
 			JFileChooser fileChooser = new JFileChooser(filePath);
-	//		fileChooser.setFileFilter(new FileNameExtensionFilter("*.java", "java"));
-	//		fileChooser.setFileFilter(new FileNameExtensionFilter("*.html", "html"));
-	//		fileChooser.setFileFilter(new FileNameExtensionFilter("*.txt", "txt"));
+			fileChooser.setFileFilter(new FileNameExtensionFilter("*.java", "java"));
+			fileChooser.setFileFilter(new FileNameExtensionFilter("*.html", "html"));
+			fileChooser.setFileFilter(new FileNameExtensionFilter("*.txt", "txt"));
 			
 			int selected = fileChooser.showOpenDialog(this);
 			if(selected == fileChooser.APPROVE_OPTION){
@@ -288,9 +306,9 @@ public class TextEditor extends JFrame implements ActionListener, CaretListener{
 	// save or saveAs
 	public void saveFile(String saveMode){
 		JFileChooser fileChooser = new JFileChooser(filePath);
-//		fileChooser.setFileFilter(new FileNameExtensionFilter("*.java", "java"));
-//		fileChooser.setFileFilter(new FileNameExtensionFilter("*.html", "html"));
-//		fileChooser.setFileFilter(new FileNameExtensionFilter("*.txt", "txt"));
+		fileChooser.setFileFilter(new FileNameExtensionFilter("*.java", "java"));
+		fileChooser.setFileFilter(new FileNameExtensionFilter("*.html", "html"));
+		fileChooser.setFileFilter(new FileNameExtensionFilter("*.txt", "txt"));
 
 		File file = null;
 		String saveCommand = "save";
@@ -397,9 +415,9 @@ public class TextEditor extends JFrame implements ActionListener, CaretListener{
         }
 
 	// set caretPosition
-	public void caretUpdate(CaretEvent event){
-		caretPosition = event.getDot();
-	}
+//	public void caretUpdate(CaretEvent event){
+//		caretPosition = event.getDot();
+//	}
 
 	// main
 	public static void main(String[] args){
