@@ -1,10 +1,12 @@
 //import java.awt.*;
 //import javax.swing.*;
 //import java.awt.event.*;
-//import java util.*;
+//import java.util.*;
 
 import java.io.*;
 import java.util.List;
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
 import java.awt.Insets;
 import java.awt.Container;
 import javax.swing.BoxLayout;
@@ -28,8 +30,13 @@ import java.awt.dnd.DnDConstants;
 import java.awt.dnd.DropTarget;
 import java.awt.dnd.DropTargetDropEvent;
 import javax.swing.JFrame;
+import javax.swing.JDialog;
 import javax.swing.JPanel;
+import javax.swing.JLabel;
+import javax.swing.JButton;
 import javax.swing.JTextArea;
+import javax.swing.JTextField;
+import javax.swing.JCheckBox;
 import javax.swing.border.*;
 import javax.swing.JScrollPane;
 import javax.swing.JMenuBar;
@@ -42,20 +49,31 @@ import javax.swing.JOptionPane;
 import javax.swing.TransferHandler;
 import javax.swing.JComponent;
 import javax.swing.filechooser.FileNameExtensionFilter;
+import javax.swing.event.CaretEvent;
+import javax.swing.event.CaretListener;
 import org.mozilla.universalchardet.UniversalDetector;
 
-public class TextEditor extends JFrame implements ActionListener{
+public class TextEditor extends JFrame implements ActionListener, CaretListener{
 
 	private JTextArea textArea;
+	private JTextField textField;
+	private JCheckBox exprHandle;
+	private JCheckBox upperOrLowerHandle;
+	private JDialog searchDialog;
+	private int caretPosition = 0;
+	private int patternFlags = Pattern.LITERAL;
 	private String filePath = new File("").getAbsolutePath();
 	private String textTitle = "No title";
 	private String textData = "";
 	private String saveMode = "save";
+	private String updateCheck = "";
 	//final String saveCheckMsg = "The contents of the file has changed.\nDo you want to save it?";
 	private final String saveCheckMsg = "ファイルの内容が変更されています。\n保存しますか？";
 	private final String updateCheckMsg = "そのファイルは存在します。\n上書きしますか？";
 	private boolean fileSavedCheck = true;
 	private boolean fileOpendCheck = false;
+	private Matcher matcher = null;
+	private Pattern p = null;
 
 	// Constructor
 	TextEditor(){
@@ -65,6 +83,54 @@ public class TextEditor extends JFrame implements ActionListener{
 		setLocationRelativeTo(null);
 		setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
 		addWindowListener(new MyWindowEvent());
+
+		// 自作関数呼び出し
+		setSearchDialog();
+		setMenu();
+		setTextArea();
+		newFile(); // 初期化のため呼び出す
+	}
+
+	// create search dialog
+	public void setSearchDialog(){
+		searchDialog = new JDialog(this, "Search", true);
+		searchDialog.setSize(280,180);
+		searchDialog.setLocationRelativeTo(null);
+		searchDialog.setResizable(false);
+		
+		JPanel panel = new JPanel();
+		//JLabel label = new JLabel("検索文字列 : ");
+		textField = new JTextField(20);
+		JButton searchButton = new JButton("search");
+		JButton cancelButton = new JButton("cancel");
+		exprHandle = new JCheckBox("正規表現を使う");
+		upperOrLowerHandle = new JCheckBox("大文字・小文字を同一視");
+
+		textField.setActionCommand("Search_run");
+		searchButton.setActionCommand("Search_run");
+		cancelButton.setActionCommand("SearchDialog_hide");
+		
+		// add search event
+		textField.addActionListener(this);
+		searchButton.addActionListener(this);
+
+		// add search cancel event
+		cancelButton.addActionListener(this);
+
+		// 正規表現使用判定イベント
+		exprHandle.addActionListener(new myExprCheck());
+		
+		//大文字・小文字の区別処理判定イベント
+		upperOrLowerHandle.addActionListener(new myUpperOrLowerCheck());
+
+		panel.add(textField);
+		panel.add(searchButton);
+		panel.add(cancelButton);
+		panel.add(exprHandle);
+		panel.add(upperOrLowerHandle);
+		
+		Container searchContentPane = searchDialog.getContentPane();
+		searchContentPane.add(panel);
 	}
 
 	public void setTextArea(){
@@ -81,7 +147,7 @@ public class TextEditor extends JFrame implements ActionListener{
 
 		// carret setting
 		textArea.setCaretPosition(0);
-		//textArea.addCaretListener(this);
+		textArea.addCaretListener(this);
 
 		// set tabSize
 		textArea.setTabSize(4);
@@ -90,6 +156,7 @@ public class TextEditor extends JFrame implements ActionListener{
 		textArea.addKeyListener(new MyKeyEvent());
 
 		// D&D event
+	//	textArea.setTransferHandler(new MyDropEvent(this));
 		textArea.setDropTarget(new MyDropEvent(this));
 
 		// scroll
@@ -102,15 +169,16 @@ public class TextEditor extends JFrame implements ActionListener{
 
 	public void setMenu(){
 		JMenuBar menuBar = new JMenuBar();
-		JMenu fileMenu = new JMenu("File");
+		JMenu fileMenu = new JMenu("File"); // File menu
 		fileMenu.setMnemonic(KeyEvent.VK_F);
+		JMenu editMenu = new JMenu("Edit"); // Edit menu
+		editMenu.setMnemonic(KeyEvent.VK_E);
 		
 		// new
 		JMenuItem fileMenuItemNew = new JMenuItem("New");
 		fileMenuItemNew.setMnemonic(KeyEvent.VK_N);
 		fileMenuItemNew.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_N, InputEvent.CTRL_DOWN_MASK));
 		fileMenuItemNew.setActionCommand("New");
-		//fileMenuItemNew.setActionCommand("N");
 		fileMenuItemNew.addActionListener(this);
 		
 		// open
@@ -118,7 +186,6 @@ public class TextEditor extends JFrame implements ActionListener{
 		fileMenuItemOpen.setMnemonic(KeyEvent.VK_O);
 		fileMenuItemOpen.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_O, InputEvent.CTRL_DOWN_MASK));
 		fileMenuItemOpen.setActionCommand("Open");
-		//fileMenuItemOpen.setActionCommand("O");
 		fileMenuItemOpen.addActionListener(this);
 		
 		// save
@@ -126,7 +193,6 @@ public class TextEditor extends JFrame implements ActionListener{
 		fileMenuItemSave.setMnemonic(KeyEvent.VK_S);
 		fileMenuItemSave.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_S, InputEvent.CTRL_DOWN_MASK));
 		fileMenuItemSave.setActionCommand("Save");
-		//fileMenuItemSave.setActionCommand("S");
 		fileMenuItemSave.addActionListener(this);
 		
 		// save as
@@ -134,7 +200,6 @@ public class TextEditor extends JFrame implements ActionListener{
 		fileMenuItemSaveas.setMnemonic(KeyEvent.VK_A);
 		fileMenuItemSaveas.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_A, InputEvent.CTRL_DOWN_MASK));
 		fileMenuItemSaveas.setActionCommand("Save_as");
-		//fileMenuItemSaveas.setActionCommand("A");
 		fileMenuItemSaveas.addActionListener(this);
 
 		// close
@@ -142,8 +207,14 @@ public class TextEditor extends JFrame implements ActionListener{
 		fileMenuItemClose.setMnemonic(KeyEvent.VK_C);
 		fileMenuItemClose.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_C, InputEvent.CTRL_DOWN_MASK));
 		fileMenuItemClose.setActionCommand("Close");
-		//fileMenuItemClose.setActionCommand("C");
 		fileMenuItemClose.addActionListener(this);
+
+		// search
+		JMenuItem fileMenuItemSearch = new JMenuItem("Search");
+		fileMenuItemSearch.setMnemonic(KeyEvent.VK_F);
+		fileMenuItemSearch.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_F, InputEvent.CTRL_DOWN_MASK));
+		fileMenuItemSearch.setActionCommand("SearchDialog_show");
+		fileMenuItemSearch.addActionListener(this);
 
 
 		// add menuItem
@@ -152,55 +223,46 @@ public class TextEditor extends JFrame implements ActionListener{
 		fileMenu.add(fileMenuItemSave);
 		fileMenu.add(fileMenuItemSaveas);
 		fileMenu.add(fileMenuItemClose);
+
+		editMenu.add(fileMenuItemSearch);
+		
 		menuBar.add(fileMenu);
+		menuBar.add(editMenu);
 	
 		this.setJMenuBar(menuBar);
 	}
 
 	// menuItem event
 	public void actionPerformed(ActionEvent event){
-		String cmd = event.getActionCommand().toString();
-                switch(cmd){
-                        case "New" :
-                                newFile();
-                                break;
-                        case "Open" :
-                                openFile("");
-                                break;
-                        case "Save" :
-                                saveMode = "save";
-                                saveFile(saveMode);
-                                break;
-                        case "Save_as" :
-                                saveMode = "saveAs";
-                                saveFile(saveMode);
-                                break;
-                        case "Close" :
-                                closeFrame();
-                                break;
-                }
-/*
-		char[] cmd = event.getActionCommand().toCharArray();
-		switch(cmd[0]){
-			case 'N' :
+		String cmd = event.getActionCommand();
+		switch(cmd){
+			case "New" :
 				newFile();
 				break;
-			case 'O' :
+			case "Open" :
 				openFile("");
 				break;
-			case 'S' :
+			case "Save" :
 				saveMode = "save";
 				saveFile(saveMode);
 				break;
-			case 'A' :
+			case "Save_as" :
 				saveMode = "saveAs";
 				saveFile(saveMode);
 				break;
-			case 'C' :
+			case "Close" :
 				closeFrame();
 				break;
+			case "SearchDialog_show" :
+				searchDialog.setVisible(true);
+				break;
+			case "Search_run" :
+				searchRun();
+				break;
+			case "SearchDialog_hide" :
+				searchDialog.setVisible(false);
+				break;
 		}
-*/
 	}
 
 	// set fileName
@@ -274,8 +336,8 @@ public class TextEditor extends JFrame implements ActionListener{
 				
 				br = new BufferedReader(new InputStreamReader(new FileInputStream(file)));
 				for(int i=0;i<encodeList.length;i++){
-                                	if(encodingCheck != null && encodingCheck.equals(encodeList[i])){
-                                        	br = new BufferedReader(new InputStreamReader(new FileInputStream(file), encodeList[i]));
+					if(encodingCheck != null && encodingCheck.equals(encodeList[i])){
+						br = new BufferedReader(new InputStreamReader(new FileInputStream(file), encodeList[i]));
 						break;
 					}
 				}	
@@ -283,8 +345,8 @@ public class TextEditor extends JFrame implements ActionListener{
 					textArea.append(textLine);
 					textArea.append("\n");
 				}
+				
 				br.close();
-
 				int lastNewLineCount = textArea.getText().length();
 				textArea.replaceRange("", lastNewLineCount-1, lastNewLineCount);
 				
@@ -357,6 +419,26 @@ public class TextEditor extends JFrame implements ActionListener{
 		}
 	}
 
+	// word search
+	public void searchRun(){
+		String textF = textField.getText();
+		String textA = textArea.getText();
+		
+		if(!updateCheck.equals(textF)){
+			matcher = null;
+		}
+
+		if(matcher == null){
+			p = Pattern.compile(textF, patternFlags);
+			matcher = p.matcher(textA);
+		
+			matchCheck(matcher);
+		}else{
+			matchCheck(matcher);
+		}
+		updateCheck = textF;
+	}
+
 	// file write
 	public void writeTextData(File file){
 		try{
@@ -415,16 +497,36 @@ public class TextEditor extends JFrame implements ActionListener{
         }
 
 	// set caretPosition
-//	public void caretUpdate(CaretEvent event){
-//		caretPosition = event.getDot();
-//	}
+	public void caretUpdate(CaretEvent event){
+		caretPosition = (int)event.getDot();
+	}
+
+	public void matchCheck(Matcher m){
+		if(m.find(caretPosition)){
+			int start = m.start();
+			int end = m.end();
+
+			textArea.requestFocusInWindow();
+			textArea.select(start, end);
+		}else{ //最後まで検索後、最初の行に戻って再検索する
+			caretPosition = 0;
+			if(m.find(caretPosition)){
+				int start = m.start();
+				int end = m.end();
+
+				textArea.requestFocusInWindow();
+				textArea.select(start, end);
+			}else{
+				//m.reset();
+				//matcher = null;
+				System.out.println("not match");
+			}
+		}
+	}
 
 	// main
 	public static void main(String[] args){
 		TextEditor textEditor = new TextEditor();
-		textEditor.setMenu();
-		textEditor.setTextArea();
-		textEditor.newFile();
 		textEditor.setVisible(true);
 	}
 
@@ -454,9 +556,9 @@ public class TextEditor extends JFrame implements ActionListener{
 	public class MyDropEvent extends DropTarget{
 		TextEditor textEditor;
 
-                MyDropEvent(TextEditor textEditor){
-                        this.textEditor = textEditor;
-                }
+		MyDropEvent(TextEditor textEditor){
+			this.textEditor = textEditor;
+		}
 
 		public void drop(DropTargetDropEvent event){
 			try{
@@ -484,6 +586,35 @@ public class TextEditor extends JFrame implements ActionListener{
 			}catch(IOException error){
 				System.out.println("IOExcepton");
 			}
+		}
+	}
+
+	// expr use check
+	public class myExprCheck implements ActionListener{
+		public void actionPerformed(ActionEvent event){
+			if(exprHandle.isSelected()){ // expr use
+				patternFlags = patternFlags -  Pattern.LITERAL;
+			}else{ // expr not use
+				patternFlags = patternFlags +  Pattern.LITERAL;
+			}
+			matcher = null;
+
+			//System.out.println("exprHandle patternFlags : " + patternFlags);
+		}
+	}
+
+	// upper or lower word equate setting
+	public class myUpperOrLowerCheck implements ActionListener{
+		public void actionPerformed(ActionEvent event){
+			
+			if(upperOrLowerHandle.isSelected()){ // equate
+				patternFlags = patternFlags +  Pattern.CASE_INSENSITIVE;
+			}else{ // not equate
+				patternFlags = patternFlags -  Pattern.CASE_INSENSITIVE;
+			}
+			matcher = null;
+
+			//System.out.println("upperOrLowerHandle patternFlags : " + patternFlags);
 		}
 	}
 }
