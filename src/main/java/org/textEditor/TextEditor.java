@@ -53,7 +53,13 @@ import javax.swing.event.CaretEvent;
 import javax.swing.event.CaretListener;
 import org.mozilla.universalchardet.UniversalDetector;
 
+import java.awt.Font;
+import java.awt.event.MouseWheelEvent;
+import java.awt.event.MouseWheelListener;
+import java.awt.event.MouseAdapter;
+
 public class TextEditor extends JFrame implements ActionListener, CaretListener{
+//public class TextEditor extends JFrame implements ActionListener, MouseWheelListener, CaretListener{
 
 	private JTextArea textArea;
 	private JTextField textField;
@@ -74,6 +80,9 @@ public class TextEditor extends JFrame implements ActionListener, CaretListener{
 	private boolean fileOpendCheck = false;
 	private Matcher matcher = null;
 	private Pattern p = null;
+	private JScrollPane scrollPane;
+	private int fontSize = 12;
+
 
 	// Constructor
 	TextEditor(){
@@ -82,7 +91,10 @@ public class TextEditor extends JFrame implements ActionListener, CaretListener{
 		setSize(640, 480);
 		setLocationRelativeTo(null);
 		setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+		// windows resize event
 		addWindowListener(new MyWindowEvent());
+		// change font size event
+//		addMouseWheelListener(this);
 
 		// 自作関数呼び出し
 		setSearchDialog();
@@ -152,17 +164,27 @@ public class TextEditor extends JFrame implements ActionListener, CaretListener{
 		// set tabSize
 		textArea.setTabSize(4);
 
+		// set font
+		textArea.setFont(new Font("Dialog", Font.PLAIN, fontSize));
+
 		// add key event
 		textArea.addKeyListener(new MyKeyEvent());
+
+		//textArea.addMouseWheelListener(new MyMouseEvent());
 
 		// D&D event
 	//	textArea.setTransferHandler(new MyDropEvent(this));
 		textArea.setDropTarget(new MyDropEvent(this));
 
+
 		// scroll
-		JScrollPane scrollPane = new JScrollPane(textArea);
+		//JScrollPane scrollPane = new JScrollPane(textArea);
+		scrollPane = new JScrollPane(textArea);
+		// change font size event
+		scrollPane.addMouseWheelListener(new MyMouseEvent());
 		textFieldPanel.add(scrollPane);
 		
+		// add textArea Panel
 		Container contentPane = getContentPane();
 		contentPane.add(textFieldPanel, BorderLayout.CENTER);
 	}
@@ -524,6 +546,17 @@ public class TextEditor extends JFrame implements ActionListener, CaretListener{
 		}
 	}
 
+//	public void mouseWheelMoved(MouseWheelEvent event){
+
+		//	System.out.println("scrollAmount : " + event.getScrollAmount());
+		//	System.out.println("rotation : " + event.getWheelRotation());
+		
+//		if(event.isControlDown()){
+//			fontSize = fontSize + (int)event.getWheelRotation();
+//			textArea.setFont(new Font("Dialog", Font.PLAIN, fontSize));
+//		}
+//	}
+
 	// main
 	public static void main(String[] args){
 		TextEditor textEditor = new TextEditor();
@@ -537,7 +570,7 @@ public class TextEditor extends JFrame implements ActionListener, CaretListener{
 		}
 	}
 
-	// file editing check
+	// key event
 	public class MyKeyEvent extends KeyAdapter{
 		public void keyReleased(KeyEvent event){
 			String text = textArea.getText();
@@ -548,8 +581,49 @@ public class TextEditor extends JFrame implements ActionListener, CaretListener{
 			}else{
 				fileSavedCheck = false;
 			}
+
+			if(!scrollPane.isWheelScrollingEnabled()){
+				scrollPane.setWheelScrollingEnabled(true);
+			}
 			
 		}
+
+		public void keyPressed(KeyEvent event){
+			int keyCode = event.getKeyCode();
+			if(keyCode == event.VK_CONTROL){
+				scrollPane.setWheelScrollingEnabled(false);
+			}
+		}
+	}
+
+	// font size change
+	public class MyMouseEvent extends MouseAdapter{
+		
+		public void mouseWheelMoved(MouseWheelEvent event){
+			if(event.isControlDown()){
+				fontSize = fontSize + (int)event.getWheelRotation();
+				textArea.setFont(new Font("Dialog", Font.PLAIN, fontSize));
+			}
+		}
+
+/*
+		public void mouseWheelMoved(MouseWheelEvent event){
+
+			if(event.isControlDown()){
+				scrollPane.setWheelScrollingEnabled(false);
+				return;
+				//System.out.println("ctl");
+			}else{
+				scrollPane.setWheelScrollingEnabled(true);
+			}
+
+			if(scrollPane.isWheelScrollingEnabled()){
+				System.out.println("not scroll");
+			}else{
+				System.out.println("scroll");
+			}
+		}
+*/
 	}
 
 	// file drop event
